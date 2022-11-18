@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
 	"github.com/supanutjarukulgowit/google_search_web_api/configuration"
+	"github.com/supanutjarukulgowit/google_search_web_api/di"
 	"github.com/supanutjarukulgowit/google_search_web_api/handler"
 )
 
@@ -43,7 +44,7 @@ func main() {
 
 	config, err := configuration.LoadConfigFile(*configPath)
 	if err != nil {
-		fmt.Println(err)
+		Log.Fatal("LoadConfigFile error : %s", err.Error())
 	}
 
 	fmt.Println("API_VERSION: ", os.Getenv("API_VERSION"))
@@ -55,18 +56,22 @@ func main() {
 
 	//CORS
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
+		AllowCredentials: true,
 	}))
 
 	h, err := handler.NewUserHandler(config.PostgreSQL)
 	if err != nil {
 		Log.Fatal("NewUserHandler error : %s", err.Error())
 	}
+	di.Init(config)
 
 	e.GET("/Health", Health)
 	e.POST("/signIn", h.SignIn)
 	e.POST("/signUp", h.SignUp)
+	e.GET("/user", h.User)
+	e.POST("/signOut", h.SignOut)
 
 	e.Logger.Fatal(e.Start(":" + os.Getenv("PORT")))
 }

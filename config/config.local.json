@@ -1,7 +1,7 @@
 {
     "postgreSQL": {
         "host" : "localhost",
-        "port" : 1433,
+        "port" : 5455,
         "user" : "test",
         "database" : "extract_google_search",
         "password" : "1234"
