@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -33,7 +34,7 @@ func NewUserService(postgreSQL interface{}) (*UserService, error) {
 func (h *UserService) SignUp(req *model.SignUpRequest) error {
 	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
 	if err != nil {
-		return err
+		return fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
 	}
 	password, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
 	id, _ := util.GetUUID()
@@ -52,7 +53,7 @@ func (h *UserService) SignUp(req *model.SignUpRequest) error {
 func (h *UserService) SignIn(req *model.SignInRequest) (*http.Cookie, string, error) {
 	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
 	}
 	user := &model.User{}
 	db.Where("username = ?", req.Username).First(&user)
@@ -81,7 +82,7 @@ func (h *UserService) SignIn(req *model.SignInRequest) (*http.Cookie, string, er
 func (h *UserService) User(cookie *http.Cookie) (*model.User, string, error) {
 	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
 	}
 
 	token, err := jwt.ParseWithClaims(cookie.Value, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {

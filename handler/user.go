@@ -28,20 +28,13 @@ type userHandler struct {
 }
 
 func NewUserHandler(postgreSQL interface{}) (UserHandler, error) {
-	var pConnect model.PostgreSQLConnect
-	err := util.InterfaceToStruct(postgreSQL, &pConnect)
-	if err != nil {
-		return nil, err
-	}
-	// p := database.NewPostgreSQL()
-	// db, err := p.ConnectPostgreSQLGorm(pConnect.Host, pConnect.User, pConnect.Password, pConnect.Database, pConnect.Port)
+	// var pConnect model.PostgreSQLConnect
+	// err := util.InterfaceToStruct(postgreSQL, &pConnect)
 	// if err != nil {
 	// 	return nil, err
 	// }
 
-	return &userHandler{
-		// DBg: db,
-	}, nil
+	return &userHandler{}, nil
 }
 
 func (h *userHandler) SignUp(c echo.Context) error {

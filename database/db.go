@@ -41,5 +41,8 @@ func (d *PostgreSQL) ConnectPostgreSQLGorm(host, user, pass, database string, po
 func migrations(db *gorm.DB) {
 	db.AutoMigrate(
 		&model.User{},
+		&model.ConfigurationDb{},
+		&model.GoogleSearchApiDb{},
+		&model.GoogleSearchApiDetailDb{},
 	)
 }
