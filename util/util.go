@@ -1,6 +1,7 @@
 package util
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +12,8 @@ import (
 	"github.com/go-playground/validator"
 	"github.com/labstack/echo/v4"
 	"github.com/supanutjarukulgowit/google_search_web_api/common"
+	"github.com/supanutjarukulgowit/google_search_web_api/database"
+	"github.com/supanutjarukulgowit/google_search_web_api/model"
 	"github.com/supanutjarukulgowit/google_search_web_api/static"
 )
 
@@ -105,4 +108,86 @@ func ValidatorParam(req interface{}) error {
 	}
 
 	return nil
+}
+
+func LoadDBConfig(key string, result interface{}, pg *database.PostgreSQL, pgConnection *model.PostgreSQLConnect) error {
+	db, err := pg.ConnectPostgreSQLGorm(pgConnection.Host, pgConnection.User, pgConnection.Password, pgConnection.Database, pgConnection.Port)
+	if err != nil {
+		return err
+	}
+	config := &model.ConfigurationDb{}
+	db.Where("id = ?", key).First(config)
+	if config.Id != "" {
+		err := json.Unmarshal([]byte(config.Val), &result)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("cannot load Config of key %s", key)
+	}
+	return nil
+}
+
+// GetStringFromSQL ... get string when query sqldb
+func GetStringFromSQL(val sql.NullString) string {
+	if val.Valid {
+		return val.String
+	}
+
+	return ""
+}
+
+// GetIntFromSQL ... get int when query sqldb
+func GetIntFromSQL(val sql.NullInt32) int {
+	if val.Valid {
+		return int(val.Int32)
+	}
+
+	return 0
+}
+
+// GetTimeFromSQL ... get time when query sqldb
+func GetTimeFromSQL(val sql.NullTime) *time.Time {
+	if val.Valid {
+		strTime, _ := TimestampToStringWithLocation("", val.Time.Unix(), "UTC")
+		// loc, _ := time.LoadLocation("Asia/Bangkok")
+		t, _ := time.ParseInLocation("2006-01-02 15:04:05", strTime, time.Local)
+		return &t
+	}
+
+	return nil
+}
+
+// GetTimeFromSQL ... get time when query sqldb
+func GetFloatFromSQL(val sql.NullFloat64) float64 {
+	if val.Valid {
+		return val.Float64
+	}
+
+	return 0
+}
+
+// TimestampToStringWithLocation ... convert string to unix timestamp
+func TimestampToStringWithLocation(format string, sec int64, local string) (string, error) {
+	if format == "" {
+		format = "2006-01-02 15:04:05"
+	}
+
+	t := time.Unix(sec, 0)
+	loc, err := time.LoadLocation(local)
+	if err != nil {
+		return "", err
+	}
+
+	return t.In(loc).Format(format), nil
+}
+
+// TimestampToString ... convert string to unix timestamp
+func TimestampToString(format string, sec int64) string {
+	if format == "" {
+		format = "2006-01-02 15:04:05"
+	}
+
+	t := time.Unix(sec, 0)
+	return t.Format(format)
 }

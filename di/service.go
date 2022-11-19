@@ -6,8 +6,9 @@ import (
 )
 
 var (
-	_config     *configuration.Configuration
-	userService *service.UserService
+	_config        *configuration.Configuration
+	userService    *service.UserService
+	keywordService *service.KeywordService
 )
 
 //Init service
@@ -23,4 +24,14 @@ func GetUserService() (*service.UserService, error) {
 	}
 
 	return userService, nil
+}
+
+func GetKeywordService() (*service.KeywordService, error) {
+	if keywordService == nil {
+		var err error
+		keywordService, err = service.NewKeywordService(_config.PostgreSQL)
+		return keywordService, err
+	}
+
+	return keywordService, nil
 }

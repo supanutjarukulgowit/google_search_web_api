@@ -7,3 +7,8 @@ type PostgreSQLConnect struct {
 	Password string `json:"password"`
 	Host     string `json:"host"`
 }
+
+type ConfigurationDb struct {
+	Id  string `json:"id"`
+	Val string `json:"val"`
+}
