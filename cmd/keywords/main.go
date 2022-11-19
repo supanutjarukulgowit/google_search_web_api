@@ -20,7 +20,6 @@ var (
 	version    = flag.String("version", "unknown", "")
 	envFile    = flag.String("env", "", "")
 	Log        = logrus.New()
-	// LogFile    = "user.log"
 )
 
 func main() {
@@ -61,17 +60,16 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	h, err := handler.NewUserHandler(config.PostgreSQL)
+	h, err := handler.NewKeywordsHandler(config.PostgreSQL)
 	if err != nil {
-		Log.Fatal("NewUserHandler error : %s", err.Error())
+		Log.Fatal("NewKeywordsHandler error : %s", err.Error())
 	}
 	di.Init(config)
 
 	e.GET("/Health", Health)
-	e.POST("/auth/signIn", h.SignIn)
-	e.POST("/auth/signUp", h.SignUp)
-	e.GET("/auth/user", h.User)
-	e.POST("/auth/signOut", h.SignOut)
+	e.GET("/keywords/download/template", h.DownloadTemplate)
+	e.POST("/keywords/upload/file", h.UploadFile)
+	e.GET("/keywords/list", h.GetKeywordList)
 
 	e.Logger.Fatal(e.Start(":" + os.Getenv("PORT")))
 }
