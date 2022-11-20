@@ -15,25 +15,14 @@ import (
 type UserHandler interface {
 	SignIn(c echo.Context) error
 	SignUp(c echo.Context) error
-	User(c echo.Context) error
 	SignOut(c echo.Context) error
 }
 
 type userHandler struct {
-	// PostgreSQLConnect model.PostgreSQLConnect
-	// PostgreSQL        *database.PostgreSQL
-	// DB *sql.DB
-	// DBg *gorm.DB
 	BaseHandler
 }
 
 func NewUserHandler(postgreSQL interface{}) (UserHandler, error) {
-	// var pConnect model.PostgreSQLConnect
-	// err := util.InterfaceToStruct(postgreSQL, &pConnect)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	return &userHandler{}, nil
 }
 
@@ -56,7 +45,10 @@ func (h *userHandler) SignUp(c echo.Context) error {
 		if err != nil {
 			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetUserService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
-		err = userService.SignUp(&req)
+		errCode, err := userService.SignUp(&req)
+		if errCode != "" {
+			return util.GenError(c, static.USER_ALREADY_SIGN_UP, "", static.USER_ALREADY_SIGN_UP, http.StatusBadRequest)
+		}
 		if err != nil {
 			return util.GenError(c, static.USER_AUTHEN_ERROR, "SignIn error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
@@ -84,7 +76,7 @@ func (h *userHandler) SignIn(c echo.Context) error {
 		if err != nil {
 			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetUserService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
-		cookie, errCode, err := userService.SignIn(&req)
+		token, errCode, err := userService.SignIn(&req)
 		if errCode == "ERROR_004" {
 			return util.GenError(c, errCode, static.ERROR_DESC["USER_NOT_FOUND"], errCode, http.StatusUnauthorized)
 		} else if errCode == "ERROR_005" {
@@ -93,30 +85,7 @@ func (h *userHandler) SignIn(c echo.Context) error {
 		if err != nil {
 			return util.GenError(c, static.USER_AUTHEN_ERROR, "SignUp error : "+err.Error(), static.USER_AUTHEN_ERROR, http.StatusInternalServerError)
 		}
-		c.SetCookie(cookie)
-		return nil
-	}
-	return h.RunProcess(c, convertFunc)
-}
-
-func (h *userHandler) User(c echo.Context) error {
-	convertFunc := func() interface{} {
-		userService, err := di.GetUserService()
-		if err != nil {
-			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetUserService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
-		}
-		cookie, err := c.Cookie("jwt")
-		if err != nil {
-			return util.GenError(c, static.USER_AUTHEN_ERROR, "GetUserService error : "+err.Error(), static.USER_AUTHEN_ERROR, http.StatusUnauthorized)
-		}
-		response, errCode, err := userService.User(cookie)
-		if errCode == "ERROR_003" {
-			return util.GenError(c, static.USER_AUTHEN_ERROR, "", static.USER_AUTHEN_ERROR, http.StatusInternalServerError)
-		}
-		if err != nil {
-			return util.GenError(c, static.USER_AUTHEN_ERROR, "SignUp error : "+err.Error(), static.USER_AUTHEN_ERROR, http.StatusInternalServerError)
-		}
-		return response
+		return token
 	}
 	return h.RunProcess(c, convertFunc)
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/supanutjarukulgowit/google_search_web_api/configuration"
 	"github.com/supanutjarukulgowit/google_search_web_api/di"
 	"github.com/supanutjarukulgowit/google_search_web_api/handler"
+	"github.com/supanutjarukulgowit/google_search_web_api/interceptor"
 )
 
 var (
@@ -65,11 +66,12 @@ func main() {
 		Log.Fatal("NewKeywordsHandler error : %s", err.Error())
 	}
 	di.Init(config)
-
+	g := e.Group("")
+	g.Use(interceptor.ValidateToken())
 	e.GET("/Health", Health)
-	e.GET("/keywords/download/template", h.DownloadTemplate)
-	e.POST("/keywords/upload/file", h.UploadFile)
-	e.GET("/keywords/list", h.GetKeywordList)
+	g.GET("/api/keywords/download/template", h.DownloadTemplate)
+	g.POST("/api/keywords/upload/file", h.UploadFile)
+	g.GET("/api/keywords/list", h.GetKeywordList)
 
 	e.Logger.Fatal(e.Start(":" + os.Getenv("PORT")))
 }
