@@ -66,12 +66,10 @@ func main() {
 		Log.Fatal("NewUserHandler error : %s", err.Error())
 	}
 	di.Init(config)
-
 	e.GET("/Health", Health)
-	e.POST("/auth/signIn", h.SignIn)
-	e.POST("/auth/signUp", h.SignUp)
-	e.GET("/auth/user", h.User)
-	e.POST("/auth/signOut", h.SignOut)
+	e.POST("/api/auth/signIn", h.SignIn)
+	e.POST("/api/auth/signUp", h.SignUp)
+	// e.POST("/api/auth/signOut", h.SignOut)
 
 	e.Logger.Fatal(e.Start(":" + os.Getenv("PORT")))
 }

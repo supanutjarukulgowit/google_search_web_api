@@ -2,7 +2,6 @@ package service
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -14,7 +13,6 @@ import (
 )
 
 type UserService struct {
-	// DBg *gorm.DB
 	Pg           *database.PostgreSQL
 	PgConnection *model.PostgreSQLConnect
 }
@@ -31,37 +29,43 @@ func NewUserService(postgreSQL interface{}) (*UserService, error) {
 	}, nil
 }
 
-func (h *UserService) SignUp(req *model.SignUpRequest) error {
+func (h *UserService) SignUp(req *model.SignUpRequest) (string, error) {
 	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
 	if err != nil {
-		return fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
+		return "", fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
+	}
+	user := &model.User{}
+	r := db.Where("username = ?", req.Username).First(&user)
+	if user.Id == "" || r.Error != nil {
+		return static.USER_ALREADY_SIGN_UP, nil
 	}
 	password, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
 	id, _ := util.GetUUID()
-	user := &model.User{
+	newUser := &model.User{
 		Id:          id,
 		Username:    req.Username,
 		Password:    string(password),
 		CreatedDate: time.Now(),
 	}
-	_ = user
-	db.Create(user)
-
-	return nil
+	r = db.Create(newUser)
+	if r.Error != nil {
+		return "", fmt.Errorf("create user error : %s", err.Error())
+	}
+	return "", nil
 }
 
-func (h *UserService) SignIn(req *model.SignInRequest) (*http.Cookie, string, error) {
+func (h *UserService) SignIn(req *model.SignInRequest) (string, string, error) {
 	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
 	if err != nil {
-		return nil, "", fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
+		return "", "", fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
 	}
 	user := &model.User{}
-	db.Where("username = ?", req.Username).First(&user)
-	if user.Id == "" {
-		return nil, static.USER_AUTHEN_ERROR, nil
+	r := db.Where("username = ?", req.Username).First(&user)
+	if user.Id == "" || r.Error != nil {
+		return "", static.USER_NOT_FOUND, nil
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return nil, static.USER_WRONG_PASSWORD, nil
+		return "", static.USER_WRONG_PASSWORD, nil
 	}
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
 		Issuer:    user.Id,
@@ -70,29 +74,7 @@ func (h *UserService) SignIn(req *model.SignInRequest) (*http.Cookie, string, er
 
 	token, err := claims.SignedString([]byte(static.SecretKey))
 	if err != nil {
-		return nil, "", err
+		return "", "", err
 	}
-	cookie := new(http.Cookie)
-	cookie.Name = "jwt"
-	cookie.Value = token
-	cookie.Expires = time.Now().Add(24 * time.Hour)
-	return cookie, "", nil
-}
-
-func (h *UserService) User(cookie *http.Cookie) (*model.User, string, error) {
-	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
-	if err != nil {
-		return nil, "", fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
-	}
-
-	token, err := jwt.ParseWithClaims(cookie.Value, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(static.SecretKey), nil
-	})
-	if err != nil {
-		return nil, static.USER_AUTHEN_ERROR, nil
-	}
-	claims := token.Claims.(*jwt.StandardClaims)
-	user := &model.User{}
-	db.Where("id = ?", claims.Issuer).First(user)
-	return user, "", nil
+	return token, "", nil
 }
