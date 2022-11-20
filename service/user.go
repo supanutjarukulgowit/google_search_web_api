@@ -36,10 +36,7 @@ func (h *UserService) SignUp(req *model.SignUpRequest) (string, error) {
 	}
 	user := &model.User{}
 	r := db.Where("username = ?", req.Username).First(&user)
-	if r.Error != nil {
-		return "", fmt.Errorf("find user error : %s", err.Error())
-	}
-	if user.Id == "" {
+	if user.Id == "" || r.Error != nil {
 		return static.USER_ALREADY_SIGN_UP, nil
 	}
 	password, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
@@ -64,10 +61,7 @@ func (h *UserService) SignIn(req *model.SignInRequest) (string, string, error) {
 	}
 	user := &model.User{}
 	r := db.Where("username = ?", req.Username).First(&user)
-	if r.Error != nil {
-		return "", "", fmt.Errorf("find username error : %s", err.Error())
-	}
-	if user.Id == "" {
+	if user.Id == "" || r.Error != nil {
 		return "", static.USER_NOT_FOUND, nil
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
