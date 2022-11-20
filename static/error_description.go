@@ -16,5 +16,7 @@ var (
 		ERROR_AMOUNT_OF_SEARCH:  `Amount of keywords error keywords must be less than 100`,
 		GET_KEYWORD_ERROR:       `Get keywords error`,
 		UPLOAD_TEMPLATE_ERROR:   `Upload template error`,
+		USER_ALREADY_SIGN_UP:    `This username is already taken`,
+		UN_AUTH_ERROR:           `Token invalid`,
 	}
 )
