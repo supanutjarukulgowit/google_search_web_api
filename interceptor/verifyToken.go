@@ -24,13 +24,13 @@ func ValidateToken() echo.MiddlewareFunc {
 			})
 			if err != nil {
 				respErr := util.GenError(c, static.UN_AUTH_ERROR, "unauth error", static.UN_AUTH_ERROR, http.StatusUnauthorized)
-				return c.JSON(http.StatusBadRequest, respErr)
+				return c.JSON(http.StatusUnauthorized, respErr)
 			}
 			if token.Valid {
 				return next(c)
 			} else {
 				respErr := util.GenError(c, static.UN_AUTH_ERROR, "unauth error", static.UN_AUTH_ERROR, http.StatusUnauthorized)
-				return c.JSON(http.StatusBadRequest, respErr)
+				return c.JSON(http.StatusUnauthorized, respErr)
 			}
 		}
 	}
