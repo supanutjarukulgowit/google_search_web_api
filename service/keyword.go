@@ -250,14 +250,15 @@ func (h *KeywordService) GetKeywordList(userID string) ([]model.GetKeywordListRe
 	details := []model.GetKeywordListResponse{}
 	// Raw SQL
 
-	rows, err := db.Raw(`select keyword, ad_words, links,
+	rows, err := db.Raw(`select id, keyword, ad_words, links,
 	html_link, raw_html, search_results, time_taken, created_date, cache from google_search_api_detail_dbs
-	where user_id = ?`, userID).Rows()
+	where user_id = ? ORDER BY created_date asc `, userID).Rows()
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
+		var id sql.NullString
 		var keyword sql.NullString
 		var adWords sql.NullInt32
 		var links sql.NullInt32
@@ -268,17 +269,18 @@ func (h *KeywordService) GetKeywordList(userID string) ([]model.GetKeywordListRe
 		var createdDate sql.NullTime
 		var cache sql.NullString
 
-		err := rows.Scan(&keyword, &adWords, &links, &htmlLink, &rawHtml, &searchResults, &timeTaken, &createdDate, &cache)
+		err := rows.Scan(&id, &keyword, &adWords, &links, &htmlLink, &rawHtml, &searchResults, &timeTaken, &createdDate, &cache)
 		if err != nil {
 			fmt.Println(err)
 			return nil, err
 		}
 		detail := model.GetKeywordListResponse{
+			Id:            util.GetStringFromSQL(id),
 			Keyword:       util.GetStringFromSQL(keyword),
 			AdWords:       util.GetIntFromSQL(adWords),
 			Links:         util.GetIntFromSQL(links),
 			HTMLLink:      util.GetStringFromSQL(htmlLink),
-			SearchResults: util.GetIntFromSQL(adWords),
+			SearchResults: util.GetIntFromSQL(searchResults),
 			Cache:         util.GetStringFromSQL(cache),
 			TimeTaken:     util.GetFloatFromSQL(timeTaken),
 			RawHTML:       util.GetStringFromSQL(rawHtml),
