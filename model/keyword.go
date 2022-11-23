@@ -68,3 +68,10 @@ type GetKeywordListResponse struct {
 	Cache         string  `json:"cache_link"`
 	CreatedDate   string  `json:"created_date"`
 }
+
+type GoogleSearchErrorLog struct {
+	Id          string
+	ErrMessage  string
+	Action      string
+	CreatedDate time.Time
+}

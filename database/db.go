@@ -44,5 +44,6 @@ func migrations(db *gorm.DB) {
 		&model.ConfigurationDb{},
 		&model.GoogleSearchApiDb{},
 		&model.GoogleSearchApiDetailDb{},
+		&model.GoogleSearchErrorLog{},
 	)
 }
