@@ -35,8 +35,8 @@ func (h *UserService) SignUp(req *model.SignUpRequest) (string, error) {
 		return "", fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
 	}
 	user := &model.User{}
-	r := db.Where("username = ?", req.Username).First(&user)
-	if user.Id == "" || r.Error != nil {
+	db.Where("username = ?", req.Username).First(&user)
+	if user.Id != "" {
 		return static.USER_ALREADY_SIGN_UP, nil
 	}
 	password, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
@@ -45,27 +45,29 @@ func (h *UserService) SignUp(req *model.SignUpRequest) (string, error) {
 		Id:          id,
 		Username:    req.Username,
 		Password:    string(password),
+		FirstName:   req.FirstName,
+		LastName:    req.LastName,
 		CreatedDate: time.Now(),
 	}
-	r = db.Create(newUser)
+	r := db.Create(newUser)
 	if r.Error != nil {
 		return "", fmt.Errorf("create user error : %s", err.Error())
 	}
 	return "", nil
 }
 
-func (h *UserService) SignIn(req *model.SignInRequest) (string, string, error) {
+func (h *UserService) SignIn(req *model.SignInRequest) (*model.SignInResponse, string, error) {
 	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
 	if err != nil {
-		return "", "", fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
+		return nil, "", fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
 	}
 	user := &model.User{}
 	r := db.Where("username = ?", req.Username).First(&user)
 	if user.Id == "" || r.Error != nil {
-		return "", static.USER_NOT_FOUND, nil
+		return nil, static.USER_NOT_FOUND, nil
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return "", static.USER_WRONG_PASSWORD, nil
+		return nil, static.USER_WRONG_PASSWORD, nil
 	}
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
 		Issuer:    user.Id,
@@ -74,7 +76,10 @@ func (h *UserService) SignIn(req *model.SignInRequest) (string, string, error) {
 
 	token, err := claims.SignedString([]byte(static.SecretKey))
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
-	return token, "", nil
+	return &model.SignInResponse{
+		Token:  token,
+		UserID: user.Id,
+	}, "", nil
 }

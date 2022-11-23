@@ -58,6 +58,7 @@ type GoogleSearchApiDetailDb struct {
 }
 
 type GetKeywordListResponse struct {
+	Id            string  `json:"id"`
 	Keyword       string  `json:"keyword"`
 	AdWords       int     `json:"ads_words"`
 	Links         int     `json:"link"`

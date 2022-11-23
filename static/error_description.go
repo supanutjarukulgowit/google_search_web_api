@@ -6,7 +6,7 @@ var (
 		INTERNAL_SERVER_ERROR:   `Internal server error`,
 		USER_AUTHEN_ERROR:       `User Authen error`,
 		USER_NOT_FOUND:          `User not found`,
-		USER_WRONG_PASSWORD:     `Wrong password`,
+		USER_WRONG_PASSWORD:     `Invalid password`,
 		DOWNLOAD_TEMPLATE_ERROR: `Download template error`,
 		CANNOT_READ_FILE_ERROR:  `Cannot read the file`,
 		FILE_NO_DATA_ERROR:      `File has no data. keywords must be more than 1`,

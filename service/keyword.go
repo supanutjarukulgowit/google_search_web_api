@@ -311,9 +311,91 @@ func (h *KeywordService) GetKeywordList(userID string) ([]model.GetKeywordListRe
 	details := []model.GetKeywordListResponse{}
 	// Raw SQL
 
-	rows, err := db.Raw(`select keyword, ad_words, links,
+	rows, err := db.Raw(`select id, keyword, ad_words, links,
 	html_link, raw_html, search_results, time_taken, created_date, cache from google_search_api_detail_dbs
-	where user_id = ?`, userID).Rows()
+	where user_id = ? ORDER BY created_date asc `, userID).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id sql.NullString
+		var keyword sql.NullString
+		var adWords sql.NullInt32
+		var links sql.NullInt32
+		var htmlLink sql.NullString
+		var rawHtml sql.NullString
+		var searchResults sql.NullInt32
+		var timeTaken sql.NullFloat64
+		var createdDate sql.NullTime
+		var cache sql.NullString
+
+		err := rows.Scan(&id, &keyword, &adWords, &links, &htmlLink, &rawHtml, &searchResults, &timeTaken, &createdDate, &cache)
+		if err != nil {
+			return nil, err
+		}
+		detail := model.GetKeywordListResponse{
+			Id:            util.GetStringFromSQL(id),
+			Keyword:       util.GetStringFromSQL(keyword),
+			AdWords:       util.GetIntFromSQL(adWords),
+			Links:         util.GetIntFromSQL(links),
+			HTMLLink:      util.GetStringFromSQL(htmlLink),
+			SearchResults: util.GetIntFromSQL(searchResults),
+			Cache:         util.GetStringFromSQL(cache),
+			TimeTaken:     util.GetFloatFromSQL(timeTaken),
+			RawHTML:       util.GetStringFromSQL(rawHtml),
+		}
+		if date := util.GetTimeFromSQL(createdDate); date != nil && !date.IsZero() {
+			detail.CreatedDate = util.TimestampToString("", date.Unix())
+		}
+		details = append(details, detail)
+	}
+	return details, nil
+}
+
+func (h *KeywordService) getSearchedKeyword(db *gorm.DB, keywords []string) ([]string, error) {
+	keywordFound := make([]string, 0)
+	param := ""
+	for _, k := range keywords {
+		if param != "" {
+			param += fmt.Sprintf(", '%s'", k)
+		} else {
+			param += fmt.Sprintf("'%s'", k)
+		}
+	}
+	// Raw SQL
+	query := fmt.Sprintf(`select distinct keyword from google_search_api_detail_dbs
+	where keyword in (%s)`, param)
+	rows, err := db.Raw(query).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var keyword sql.NullString
+		err := rows.Scan(&keyword)
+		if err != nil {
+			return nil, err
+		}
+		keywordFound = append(keywordFound, util.GetStringFromSQL(keyword))
+	}
+	return keywordFound, nil
+}
+
+func (h *KeywordService) getFoundKeywords(db *gorm.DB, foundKeywords map[string]string, userID, searchID string) ([]model.GoogleSearchApiDetailDb, error) {
+	param := ""
+	for _, v := range foundKeywords {
+		if param != "" {
+			param += fmt.Sprintf(", '%s'", v)
+		} else {
+			param += fmt.Sprintf("'%s'", v)
+		}
+	}
+	details := []model.GoogleSearchApiDetailDb{}
+	query := fmt.Sprintf(`select keyword, ad_words, links,
+	html_link, raw_html, search_results, time_taken, created_date, cache from google_search_api_detail_dbs
+	where keyword in (%s) ORDER BY created_date asc `, param)
+	rows, err := db.Raw(query).Rows()
 	if err != nil {
 		return nil, err
 	}
@@ -333,18 +415,20 @@ func (h *KeywordService) GetKeywordList(userID string) ([]model.GetKeywordListRe
 		if err != nil {
 			return nil, err
 		}
-		detail := model.GetKeywordListResponse{
+		uuid, _ := util.GetUUID()
+		detail := model.GoogleSearchApiDetailDb{
+			Id:            uuid,
 			Keyword:       util.GetStringFromSQL(keyword),
 			AdWords:       util.GetIntFromSQL(adWords),
 			Links:         util.GetIntFromSQL(links),
 			HTMLLink:      util.GetStringFromSQL(htmlLink),
-			SearchResults: util.GetIntFromSQL(adWords),
+			SearchResults: util.GetIntFromSQL(searchResults),
 			Cache:         util.GetStringFromSQL(cache),
 			TimeTaken:     util.GetFloatFromSQL(timeTaken),
-			RawHTML:       util.GetStringFromSQL(rawHtml),
-		}
-		if date := util.GetTimeFromSQL(createdDate); date != nil && !date.IsZero() {
-			detail.CreatedDate = util.TimestampToString("", date.Unix())
+			RawHTML:       []byte(util.GetStringFromSQL(rawHtml)),
+			CreatedDate:   *util.GetTimeFromSQL(createdDate),
+			UserId:        userID,
+			SearchId:      searchID,
 		}
 		details = append(details, detail)
 	}
