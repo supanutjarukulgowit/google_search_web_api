@@ -19,11 +19,12 @@ type KeywordsHandler interface {
 
 type keywordHandler struct {
 	BaseHandler
-	Pg           *database.PostgreSQL
-	PgConnection *model.PostgreSQLConnect
+	Pg            *database.PostgreSQL
+	PgConnection  *model.PostgreSQLConnect
+	GSearchApiKey string
 }
 
-func NewKeywordsHandler(postgreSQL interface{}) (KeywordsHandler, error) {
+func NewKeywordsHandler(postgreSQL interface{}, gSearchApiKey string) (KeywordsHandler, error) {
 	var pConnect model.PostgreSQLConnect
 	err := util.InterfaceToStruct(postgreSQL, &pConnect)
 	if err != nil {
@@ -31,8 +32,9 @@ func NewKeywordsHandler(postgreSQL interface{}) (KeywordsHandler, error) {
 	}
 
 	return &keywordHandler{
-		Pg:           database.NewPostgreSQL(),
-		PgConnection: &pConnect,
+		Pg:            database.NewPostgreSQL(),
+		PgConnection:  &pConnect,
+		GSearchApiKey: gSearchApiKey,
 	}, nil
 }
 
@@ -69,7 +71,7 @@ func (h *keywordHandler) UploadFile(c echo.Context) error {
 			return util.GenError(c, static.CANNOT_LOAD_CONFIG, "UploadFile error : "+err.Error(), static.CANNOT_LOAD_CONFIG, http.StatusInternalServerError)
 		}
 
-		errCode, err := keywordervice.UploadFile(form, &googleSearchConfig)
+		errCode, err := keywordervice.UploadFile(form, h.GSearchApiKey)
 		if errCode != "" {
 			if errCode == "ERR_001" {
 				return util.GenError(c, errCode, "UploadFile error : "+err.Error(), errCode, http.StatusBadRequest)
