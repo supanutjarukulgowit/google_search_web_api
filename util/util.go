@@ -146,6 +146,15 @@ func GetIntFromSQL(val sql.NullInt32) int {
 	return 0
 }
 
+// GetIntFromSQL ... get int when query sqldb
+func GetInt64FromSQL(val sql.NullInt64) int {
+	if val.Valid {
+		return int(val.Int64)
+	}
+
+	return 0
+}
+
 // GetTimeFromSQL ... get time when query sqldb
 func GetTimeFromSQL(val sql.NullTime) *time.Time {
 	if val.Valid {

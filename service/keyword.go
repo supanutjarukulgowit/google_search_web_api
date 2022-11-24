@@ -87,11 +87,11 @@ func (h *KeywordService) UploadFile(form *multipart.Form, gSearchApiKey string) 
 	//but still save data of found keywords
 	foundKeywords, newKeywords := h.filterKeywords(searchedKeywords, keywords)
 	searchID, _ := util.GetUUID() //id of each search
+	err = h.saveSearchData(db, fileName, user.Id, searchID)
+	if err != nil {
+		return "", fmt.Errorf("UploadFile|saveSearchData error : %s", err.Error())
+	}
 	if len(foundKeywords) != 0 {
-		err = h.saveSearchData(db, fileName, user.Id, searchID)
-		if err != nil {
-			return "", fmt.Errorf("UploadFile|saveSearchData error : %s", err.Error())
-		}
 		//save foundKeywords
 		foundKData, err := h.getFoundKeywords(db, foundKeywords, user.Id, searchID)
 		if err != nil {
@@ -160,7 +160,9 @@ func (h *KeywordService) extractKeyWordsFromFile(files []*multipart.FileHeader) 
 		}
 		if readAble {
 			for _, record := range records {
-				keywords = append(keywords, record[0])
+				if record[0] != "" {
+					keywords = append(keywords, record[0])
+				}
 			}
 		}
 	}
@@ -284,6 +286,7 @@ func (h *KeywordService) saveSearchDataDetail(db *gorm.DB, result []model.Google
 	searchDetails := make([]model.GoogleSearchApiDetailDb, 0)
 	for _, r := range result {
 		detailID, _ := util.GetUUID()
+		loc, _ := time.LoadLocation("Asia/Bangkok")
 		detail := model.GoogleSearchApiDetailDb{
 			Id:            detailID,
 			SearchId:      searchID,
@@ -293,7 +296,7 @@ func (h *KeywordService) saveSearchDataDetail(db *gorm.DB, result []model.Google
 			HTMLLink:      r.SearchMetadata.GoogleUrl,
 			SearchResults: r.SearchInformation.TotalResults,
 			TimeTaken:     r.SearchInformation.TimeTakenDisplayed,
-			CreatedDate:   time.Now(),
+			CreatedDate:   time.Now().In(loc),
 			UserId:        userID,
 			RawHTML:       []byte(r.SearchMetadata.HtmlCode),
 		}
@@ -314,6 +317,56 @@ func (h *KeywordService) GetKeywordList(userID string) ([]model.GetKeywordListRe
 	rows, err := db.Raw(`select id, keyword, ad_words, links,
 	html_link, raw_html, search_results, time_taken, created_date, cache from google_search_api_detail_dbs
 	where user_id = ? ORDER BY created_date asc `, userID).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id sql.NullString
+		var keyword sql.NullString
+		var adWords sql.NullInt32
+		var links sql.NullInt32
+		var htmlLink sql.NullString
+		var rawHtml sql.NullString
+		var searchResults sql.NullInt64
+		var timeTaken sql.NullFloat64
+		var createdDate sql.NullTime
+		var cache sql.NullString
+
+		err := rows.Scan(&id, &keyword, &adWords, &links, &htmlLink, &rawHtml, &searchResults, &timeTaken, &createdDate, &cache)
+		if err != nil {
+			return nil, err
+		}
+		detail := model.GetKeywordListResponse{
+			Id:            util.GetStringFromSQL(id),
+			Keyword:       util.GetStringFromSQL(keyword),
+			AdWords:       util.GetIntFromSQL(adWords),
+			Links:         util.GetIntFromSQL(links),
+			HTMLLink:      util.GetStringFromSQL(htmlLink),
+			SearchResults: util.GetInt64FromSQL(searchResults),
+			Cache:         util.GetStringFromSQL(cache),
+			TimeTaken:     util.GetFloatFromSQL(timeTaken),
+			RawHTML:       util.GetStringFromSQL(rawHtml),
+		}
+		if date := util.GetTimeFromSQL(createdDate); date != nil && !date.IsZero() {
+			detail.CreatedDate = util.TimestampToString("", date.Unix())
+		}
+		details = append(details, detail)
+	}
+	return details, nil
+}
+
+func (h *KeywordService) GetSearchKeyword(req *model.SearchKeywordRequest, userID string) ([]model.GetKeywordListResponse, error) {
+	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
+	if err != nil {
+		return nil, fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
+	}
+	details := []model.GetKeywordListResponse{}
+	// Raw SQL
+	k := fmt.Sprintf("%%%s%%", strings.ToUpper(req.Keyword))
+	rows, err := db.Raw(`select id, keyword, ad_words, links,
+	html_link, raw_html, search_results, time_taken, created_date, cache from google_search_api_detail_dbs
+	where UPPER(keyword) like ? and user_id = ? ORDER BY created_date asc `, k, userID).Rows()
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +399,7 @@ func (h *KeywordService) GetKeywordList(userID string) ([]model.GetKeywordListRe
 			RawHTML:       util.GetStringFromSQL(rawHtml),
 		}
 		if date := util.GetTimeFromSQL(createdDate); date != nil && !date.IsZero() {
-			detail.CreatedDate = util.TimestampToString("", date.Unix())
+			detail.CreatedDate, _ = util.TimestampToStringWithLocation("", date.Unix(), "Asia/Bangkok")
 		}
 		details = append(details, detail)
 	}
@@ -383,54 +436,50 @@ func (h *KeywordService) getSearchedKeyword(db *gorm.DB, keywords []string) ([]s
 }
 
 func (h *KeywordService) getFoundKeywords(db *gorm.DB, foundKeywords map[string]string, userID, searchID string) ([]model.GoogleSearchApiDetailDb, error) {
-	param := ""
-	for _, v := range foundKeywords {
-		if param != "" {
-			param += fmt.Sprintf(", '%s'", v)
-		} else {
-			param += fmt.Sprintf("'%s'", v)
-		}
-	}
 	details := []model.GoogleSearchApiDetailDb{}
-	query := fmt.Sprintf(`select keyword, ad_words, links,
-	html_link, raw_html, search_results, time_taken, created_date, cache from google_search_api_detail_dbs
-	where keyword in (%s) ORDER BY created_date asc `, param)
-	rows, err := db.Raw(query).Rows()
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var keyword sql.NullString
-		var adWords sql.NullInt32
-		var links sql.NullInt32
-		var htmlLink sql.NullString
-		var rawHtml sql.NullString
-		var searchResults sql.NullInt32
-		var timeTaken sql.NullFloat64
-		var createdDate sql.NullTime
-		var cache sql.NullString
-
-		err := rows.Scan(&keyword, &adWords, &links, &htmlLink, &rawHtml, &searchResults, &timeTaken, &createdDate, &cache)
+	for _, v := range foundKeywords {
+		rows, err := db.Raw(`select keyword, ad_words, links,
+		html_link, raw_html, search_results, time_taken, created_date, cache from google_search_api_detail_dbs
+		where keyword = ? and user_id = ? ORDER BY created_date desc limit 1`, v, userID).Rows()
 		if err != nil {
 			return nil, err
 		}
-		uuid, _ := util.GetUUID()
-		detail := model.GoogleSearchApiDetailDb{
-			Id:            uuid,
-			Keyword:       util.GetStringFromSQL(keyword),
-			AdWords:       util.GetIntFromSQL(adWords),
-			Links:         util.GetIntFromSQL(links),
-			HTMLLink:      util.GetStringFromSQL(htmlLink),
-			SearchResults: util.GetIntFromSQL(searchResults),
-			Cache:         util.GetStringFromSQL(cache),
-			TimeTaken:     util.GetFloatFromSQL(timeTaken),
-			RawHTML:       []byte(util.GetStringFromSQL(rawHtml)),
-			CreatedDate:   *util.GetTimeFromSQL(createdDate),
-			UserId:        userID,
-			SearchId:      searchID,
+		defer rows.Close()
+		if rows.Next() {
+			var keyword sql.NullString
+			var adWords sql.NullInt32
+			var links sql.NullInt32
+			var htmlLink sql.NullString
+			var rawHtml sql.NullString
+			var searchResults sql.NullInt64
+			var timeTaken sql.NullFloat64
+			var createdDate sql.NullTime
+			var cache sql.NullString
+
+			err := rows.Scan(&keyword, &adWords, &links, &htmlLink, &rawHtml, &searchResults, &timeTaken, &createdDate, &cache)
+			if err != nil {
+				return nil, err
+			}
+			uuid, _ := util.GetUUID()
+			loc, _ := time.LoadLocation("Asia/Bangkok")
+			detail := model.GoogleSearchApiDetailDb{
+				Id:            uuid,
+				Keyword:       util.GetStringFromSQL(keyword),
+				AdWords:       util.GetIntFromSQL(adWords),
+				Links:         util.GetIntFromSQL(links),
+				HTMLLink:      util.GetStringFromSQL(htmlLink),
+				SearchResults: util.GetInt64FromSQL(searchResults),
+				Cache:         util.GetStringFromSQL(cache),
+				TimeTaken:     util.GetFloatFromSQL(timeTaken),
+				RawHTML:       []byte(util.GetStringFromSQL(rawHtml)),
+				CreatedDate:   time.Now().In(loc),
+				UserId:        userID,
+				SearchId:      searchID,
+			}
+			fmt.Println(detail.CreatedDate)
+			details = append(details, detail)
 		}
-		details = append(details, detail)
 	}
+
 	return details, nil
 }
