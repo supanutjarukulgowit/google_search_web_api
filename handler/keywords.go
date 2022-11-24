@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"io/ioutil"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -15,6 +16,7 @@ type KeywordsHandler interface {
 	DownloadTemplate(c echo.Context) error
 	UploadFile(c echo.Context) error
 	GetKeywordList(c echo.Context) error
+	GetSearchKeyword(c echo.Context) error
 }
 
 type keywordHandler struct {
@@ -103,6 +105,39 @@ func (h *keywordHandler) GetKeywordList(c echo.Context) error {
 		response, err := keywordervice.GetKeywordList(userID)
 		if err != nil {
 			return util.GenError(c, static.GET_KEYWORD_ERROR, "GetKeywordList error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
+		}
+		return response
+	}
+	return h.RunProcess(c, convertFunc)
+}
+
+func (h *keywordHandler) GetSearchKeyword(c echo.Context) error {
+	body, _ := ioutil.ReadAll(c.Request().Body)
+	var req model.SearchKeywordRequest
+	err := util.ByteToStruct(body, &req)
+	if err != nil {
+		respErr := util.GenError(c, static.INVALID_PARAMS, "GetSearchKeyword error: "+err.Error(), static.INVALID_PARAMS, http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, respErr)
+	}
+	err = util.ValidatorParam(req)
+	if err != nil {
+		respErr := util.GenError(c, static.INVALID_PARAMS, "GetSearchKeyword error: "+err.Error(), static.INVALID_PARAMS, http.StatusBadRequest)
+		return c.JSON(http.StatusBadRequest, respErr)
+	}
+	userID := c.Request().Header.Get("user_id")
+	if userID == "" {
+		respErr := util.GenError(c, static.INVALID_PARAMS, "", static.INVALID_PARAMS, http.StatusUnauthorized)
+		return c.JSON(http.StatusBadRequest, respErr)
+	}
+
+	convertFunc := func() interface{} {
+		keywordervice, err := di.GetKeywordService()
+		if err != nil {
+			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetKeywordService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
+		}
+		response, err := keywordervice.GetSearchKeyword(&req, userID)
+		if err != nil {
+			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetSearchKeyword error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
 		return response
 	}

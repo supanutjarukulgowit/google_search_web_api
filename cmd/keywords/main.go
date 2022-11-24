@@ -71,6 +71,7 @@ func main() {
 	g.GET("/api/keywords/download/template", h.DownloadTemplate)
 	g.POST("/api/keywords/upload/file", h.UploadFile)
 	g.GET("/api/keywords/list", h.GetKeywordList)
+	g.POST("/api/keywords/search", h.GetSearchKeyword)
 
 	e.Logger.Fatal(e.Start(":" + os.Getenv("PORT")))
 }

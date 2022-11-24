@@ -3,7 +3,6 @@ package handler
 import (
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/supanutjarukulgowit/google_search_web_api/di"
@@ -15,7 +14,6 @@ import (
 type UserHandler interface {
 	SignIn(c echo.Context) error
 	SignUp(c echo.Context) error
-	SignOut(c echo.Context) error
 }
 
 type userHandler struct {
@@ -86,20 +84,6 @@ func (h *userHandler) SignIn(c echo.Context) error {
 			return util.GenError(c, static.USER_AUTHEN_ERROR, "SignUp error : "+err.Error(), static.USER_AUTHEN_ERROR, http.StatusInternalServerError)
 		}
 		return token
-	}
-	return h.RunProcess(c, convertFunc)
-}
-
-func (h *userHandler) SignOut(c echo.Context) error {
-	convertFunc := func() interface{} {
-		cookie := &http.Cookie{
-			Name:     "jwt",
-			Value:    "",
-			Expires:  time.Now().Add(-time.Hour),
-			HttpOnly: true,
-		}
-		c.SetCookie(cookie)
-		return nil
 	}
 	return h.RunProcess(c, convertFunc)
 }

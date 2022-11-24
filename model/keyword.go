@@ -76,3 +76,7 @@ type GoogleSearchErrorLog struct {
 	Action      string
 	CreatedDate time.Time
 }
+
+type SearchKeywordRequest struct {
+	Keyword string `json:"keyword" validate:"required"`
+}

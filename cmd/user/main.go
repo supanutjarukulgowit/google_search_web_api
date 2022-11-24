@@ -69,7 +69,6 @@ func main() {
 	e.GET("/Health", Health)
 	e.POST("/api/auth/signIn", h.SignIn)
 	e.POST("/api/auth/signUp", h.SignUp)
-	// e.POST("/api/auth/signOut", h.SignOut)
 
 	e.Logger.Fatal(e.Start(":" + os.Getenv("PORT")))
 }
