@@ -1,4 +1,5 @@
 # To start server
+### `go mod tidy`
 using vscode debug tool
 ![](images/tutorial/start_debug.png)
 ![](images/tutorial/debug.png)
