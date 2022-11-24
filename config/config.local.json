@@ -5,5 +5,6 @@
         "user" : "test",
         "database" : "extract_google_search",
         "password" : "1234"
-    }
+    },
+    "google_search_api_key": "d736e233583c72b46daae14e78dc2ce810a607e3b58e47fe87f219e5a496d60e"
 }

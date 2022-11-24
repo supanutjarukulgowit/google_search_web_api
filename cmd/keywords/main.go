@@ -60,18 +60,18 @@ func main() {
 		AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
 		AllowCredentials: true,
 	}))
-
-	h, err := handler.NewKeywordsHandler(config.PostgreSQL)
+	di.Init(config)
+	h, err := handler.NewKeywordsHandler(config.PostgreSQL, config.GoogleSearchApiKey)
 	if err != nil {
 		Log.Fatal("NewKeywordsHandler error : %s", err.Error())
 	}
-	di.Init(config)
 	g := e.Group("")
 	g.Use(interceptor.ValidateToken())
 	e.GET("/Health", Health)
 	g.GET("/api/keywords/download/template", h.DownloadTemplate)
 	g.POST("/api/keywords/upload/file", h.UploadFile)
 	g.GET("/api/keywords/list", h.GetKeywordList)
+	g.POST("/api/keywords/search", h.GetSearchKeyword)
 
 	e.Logger.Fatal(e.Start(":" + os.Getenv("PORT")))
 }

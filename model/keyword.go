@@ -58,6 +58,7 @@ type GoogleSearchApiDetailDb struct {
 }
 
 type GetKeywordListResponse struct {
+	Id            string  `json:"id"`
 	Keyword       string  `json:"keyword"`
 	AdWords       int     `json:"ads_words"`
 	Links         int     `json:"link"`
@@ -67,4 +68,15 @@ type GetKeywordListResponse struct {
 	TimeTaken     float64 `json:"time_taken"`
 	Cache         string  `json:"cache_link"`
 	CreatedDate   string  `json:"created_date"`
+}
+
+type GoogleSearchErrorLog struct {
+	Id          string
+	ErrMessage  string
+	Action      string
+	CreatedDate time.Time
+}
+
+type SearchKeywordRequest struct {
+	Keyword string `json:"keyword" validate:"required"`
 }
