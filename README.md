@@ -7,4 +7,6 @@ sorry for the inconvenience way to start the server I havd a plan to deploy api 
 as you can see in the project I have 2 services so it's easy to maintain when deploy to real server using docker.
 
 # To start database using docker
-docker run --name myPostgresDb -p 5455:5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=1234 -e POSTGRES_DB=postgresDB -d postgres
+docker run --name myPostgresDb -p 5455:5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=1234 -e POSTGRES_DB=postgresDB -d postgres \
+this is postman for test api\
+https://api.postman.com/collections/12398625-3d81c4d5-d38f-488e-9ddb-d1065dd5d517?access_key=PMAT-01GJMXZXZN9TQPN2EW1XN4VTY7
