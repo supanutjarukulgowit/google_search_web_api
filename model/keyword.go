@@ -55,6 +55,8 @@ type GoogleSearchApiDetailDb struct {
 	Cache         string
 	CreatedDate   time.Time
 	UserId        string
+	Status        string
+	ErrMsg        string
 }
 
 type GetKeywordListResponse struct {
@@ -74,6 +76,7 @@ type GoogleSearchErrorLog struct {
 	Id          string
 	ErrMessage  string
 	Action      string
+	Keyword     string
 	CreatedDate time.Time
 }
 

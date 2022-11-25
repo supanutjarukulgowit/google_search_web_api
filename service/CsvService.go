@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"strings"
+	"time"
 
 	"github.com/supanutjarukulgowit/google_search_web_api/database"
 	"github.com/supanutjarukulgowit/google_search_web_api/model"
@@ -43,7 +44,7 @@ func (h *CsvService) DownloadTemplate() (*model.DownloadTemplateResponse, error)
 	}, nil
 }
 
-func (h *CsvService) UploadFile(form *multipart.Form, gSearchApiKey string) (map[string]string, string, string, string, error) {
+func (h *CsvService) UploadFile(form *multipart.Form, gSearchApiKey string) (map[string]*model.GoogleSearchApiDetailDb, string, string, string, error) {
 	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
 	if err != nil {
 		return nil, "", "", "", fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
@@ -77,8 +78,8 @@ func (h *CsvService) UploadFile(form *multipart.Form, gSearchApiKey string) (map
 	}
 	//using only new keyword to prevent limitation
 	//but still save data of found keywords
-	foundKeywords, newKeywords := h.filterKeywords(searchedKeywords, keywords)
 	searchID, _ := util.GetUUID() //id of each search
+	foundKeywords, newKeywords, newKeywordList := h.filterKeywords(searchedKeywords, keywords, searchID, user.Id)
 	err = repository.SaveSearchData(db, fileName, user.Id, searchID)
 	if err != nil {
 		return nil, "", "", "", fmt.Errorf("UploadFile|saveSearchData error : %s", err.Error())
@@ -92,6 +93,12 @@ func (h *CsvService) UploadFile(form *multipart.Form, gSearchApiKey string) (map
 		r := db.CreateInBatches(&foundKData, 50)
 		if r.Error != nil {
 			return nil, "", "", "", fmt.Errorf("UploadFile|save|foundKData| error : %s", err.Error())
+		}
+	}
+	if len(newKeywordList) != 0 {
+		r := db.CreateInBatches(&newKeywordList, 50)
+		if r.Error != nil {
+			return nil, "", "", "", fmt.Errorf("UploadFile|save|newKeywordList| error : %s", err.Error())
 		}
 	}
 	return newKeywords, user.Id, searchID, "", nil
@@ -132,9 +139,10 @@ func (h *CsvService) extractKeyWordsFromFile(files []*multipart.FileHeader) ([]s
 	return keywords, files[0].Filename, "", nil
 }
 
-func (h *CsvService) filterKeywords(searchedKeywords, keywords []string) (map[string]string, map[string]string) {
+func (h *CsvService) filterKeywords(searchedKeywords, keywords []string, searchID, userID string) (map[string]string, map[string]*model.GoogleSearchApiDetailDb, []model.GoogleSearchApiDetailDb) {
 	foundKeyword := make(map[string]string, 0)
-	newKeyword := make(map[string]string, 0)
+	newKeywordMap := make(map[string]*model.GoogleSearchApiDetailDb, 0)
+	newKeywordList := make([]model.GoogleSearchApiDetailDb, 0)
 	found := false
 	for _, k := range keywords {
 		found = false
@@ -146,8 +154,18 @@ func (h *CsvService) filterKeywords(searchedKeywords, keywords []string) (map[st
 			}
 		}
 		if !found {
-			newKeyword[k] = k
+			uuid, _ := util.GetUUID()
+			nk := &model.GoogleSearchApiDetailDb{
+				Id:          uuid,
+				UserId:      userID,
+				SearchId:    searchID,
+				Status:      "pending",
+				CreatedDate: time.Now(),
+				Keyword:     k,
+			}
+			newKeywordMap[k] = nk
+			newKeywordList = append(newKeywordList, *nk)
 		}
 	}
-	return foundKeyword, newKeyword
+	return foundKeyword, newKeywordMap, newKeywordList
 }

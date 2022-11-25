@@ -70,12 +70,6 @@ func (h *keywordHandler) UploadFile(c echo.Context) error {
 		if err != nil {
 			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetGoogleSearchService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
-
-		var googleSearchConfig model.GoogleSearchConfig
-		err = util.LoadDBConfig("google_search_api.config", &googleSearchConfig, h.Pg, h.PgConnection)
-		if err != nil {
-			return util.GenError(c, static.CANNOT_LOAD_CONFIG, "UploadFile error : "+err.Error(), static.CANNOT_LOAD_CONFIG, http.StatusInternalServerError)
-		}
 		newkeywords, userID, searchID, errCode, err := csvService.UploadFile(form, h.GSearchApiKey)
 		if errCode != "" {
 			if errCode == "ERR_001" {
@@ -89,11 +83,10 @@ func (h *keywordHandler) UploadFile(c echo.Context) error {
 		if err != nil {
 			return util.GenError(c, static.UPLOAD_TEMPLATE_ERROR, "UploadFile error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
-		err = googleSearchService.GetGoogleSearchApi(newkeywords, h.GSearchApiKey, userID, searchID)
-		if err != nil {
-			return util.GenError(c, static.UPLOAD_TEMPLATE_ERROR, "GetGoogleSearchApi error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
-		}
-
+		//upload new keyword and then update status by async processing
+		go func() {
+			googleSearchService.GetGoogleSearchApi(newkeywords, h.GSearchApiKey, userID, searchID)
+		}()
 		return nil
 	}
 	return h.RunProcess(c, convertFunc)
