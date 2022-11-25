@@ -6,9 +6,11 @@ import (
 )
 
 var (
-	_config        *configuration.Configuration
-	userService    *service.UserService
-	keywordService *service.KeywordService
+	_config             *configuration.Configuration
+	userService         *service.UserService
+	keywordService      *service.KeywordService
+	csvService          *service.CsvService
+	googleSearchService *service.GoogleSearchService
 )
 
 //Init service
@@ -34,4 +36,24 @@ func GetKeywordService() (*service.KeywordService, error) {
 	}
 
 	return keywordService, nil
+}
+
+func GetCsvService() (*service.CsvService, error) {
+	if csvService == nil {
+		var err error
+		csvService, err = service.NewCsvService(_config.PostgreSQL)
+		return csvService, err
+	}
+
+	return csvService, nil
+}
+
+func GetGoogleSearchService() (*service.GoogleSearchService, error) {
+	if googleSearchService == nil {
+		var err error
+		googleSearchService, err = service.NewGoogleSearchService(_config.PostgreSQL)
+		return googleSearchService, err
+	}
+
+	return googleSearchService, nil
 }
