@@ -2,8 +2,10 @@ package util
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -199,4 +201,32 @@ func TimestampToString(format string, sec int64) string {
 
 	t := time.Unix(sec, 0)
 	return t.Format(format)
+}
+
+func ReadUploadCsvFile(file *multipart.FileHeader, columnName []string) ([][]string, string, error) {
+	src, err := file.Open()
+	if err != nil {
+		return nil, static.CANNOT_READ_FILE_ERROR, fmt.Errorf("open file error %s", err.Error())
+	}
+	defer src.Close()
+
+	csvReader := csv.NewReader(src)
+	records, err := csvReader.ReadAll()
+	if err != nil {
+		return nil, static.CANNOT_READ_FILE_ERROR, fmt.Errorf("read file error %s", err.Error())
+	}
+	if len(records) == 1 {
+		return nil, static.FILE_NO_DATA_ERROR, fmt.Errorf("no data found")
+	}
+
+	if len(records[0]) < len(columnName) {
+		return nil, static.COLUMN_COUNT_INVALID, fmt.Errorf("column count invalid")
+	}
+
+	for index, col := range records[0][0:len(columnName)] {
+		if col != columnName[index] {
+			return nil, static.COLUMN_NAME_INVALID, fmt.Errorf("column name invalid")
+		}
+	}
+	return records[1:], "", nil
 }

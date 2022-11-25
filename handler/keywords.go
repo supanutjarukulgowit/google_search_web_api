@@ -42,11 +42,11 @@ func NewKeywordsHandler(postgreSQL interface{}, gSearchApiKey string) (KeywordsH
 
 func (h *keywordHandler) DownloadTemplate(c echo.Context) error {
 	convertFunc := func() interface{} {
-		keywordervice, err := di.GetKeywordService()
+		csvService, err := di.GetCsvService()
 		if err != nil {
-			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "DownloadTemplate error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
+			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetCsvService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
-		response, err := keywordervice.DownloadTemplate()
+		response, err := csvService.DownloadTemplate()
 		if err != nil {
 			return util.GenError(c, static.DOWNLOAD_TEMPLATE_ERROR, "DownloadTemplate error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
@@ -62,9 +62,13 @@ func (h *keywordHandler) UploadFile(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, respErr)
 	}
 	convertFunc := func() interface{} {
-		keywordervice, err := di.GetKeywordService()
+		csvService, err := di.GetCsvService()
 		if err != nil {
-			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetKeywordService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
+			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetCsvService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
+		}
+		googleSearchService, err := di.GetGoogleSearchService()
+		if err != nil {
+			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetGoogleSearchService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
 
 		var googleSearchConfig model.GoogleSearchConfig
@@ -72,8 +76,7 @@ func (h *keywordHandler) UploadFile(c echo.Context) error {
 		if err != nil {
 			return util.GenError(c, static.CANNOT_LOAD_CONFIG, "UploadFile error : "+err.Error(), static.CANNOT_LOAD_CONFIG, http.StatusInternalServerError)
 		}
-
-		errCode, err := keywordervice.UploadFile(form, h.GSearchApiKey)
+		newkeywords, userID, searchID, errCode, err := csvService.UploadFile(form, h.GSearchApiKey)
 		if errCode != "" {
 			if errCode == "ERR_001" {
 				return util.GenError(c, errCode, "UploadFile error : "+err.Error(), errCode, http.StatusBadRequest)
@@ -86,6 +89,11 @@ func (h *keywordHandler) UploadFile(c echo.Context) error {
 		if err != nil {
 			return util.GenError(c, static.UPLOAD_TEMPLATE_ERROR, "UploadFile error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
+		err = googleSearchService.GetGoogleSearchApi(newkeywords, h.GSearchApiKey, userID, searchID)
+		if err != nil {
+			return util.GenError(c, static.UPLOAD_TEMPLATE_ERROR, "GetGoogleSearchApi error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
+		}
+
 		return nil
 	}
 	return h.RunProcess(c, convertFunc)
