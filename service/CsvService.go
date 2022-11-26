@@ -68,9 +68,9 @@ func (h *CsvService) UploadFile(form *multipart.Form, gSearchApiKey string) (map
 		return nil, "", "", static.USER_NOT_FOUND, fmt.Errorf("user_id not found")
 	}
 	//get keywords
-	keywords, fileName, errCode, err := h.extractKeyWordsFromFile(files)
+	keywords, fileName, errCode, err := h.extractAndValidateKeyWordsFromFile(files)
 	if errCode != "" || err != nil {
-		return nil, "", "", errCode, fmt.Errorf("extractKeyWordsFromFile error : %s", err.Error())
+		return nil, "", "", errCode, fmt.Errorf("extractAndValidateKeyWordsFromFile error : %s", err.Error())
 	}
 	searchedKeywords, err := repository.GetSearchedKeyword(db, keywords)
 	if err != nil {
@@ -104,7 +104,7 @@ func (h *CsvService) UploadFile(form *multipart.Form, gSearchApiKey string) (map
 	return newKeywords, user.Id, searchID, "", nil
 }
 
-func (h *CsvService) extractKeyWordsFromFile(files []*multipart.FileHeader) ([]string, string, string, error) {
+func (h *CsvService) extractAndValidateKeyWordsFromFile(files []*multipart.FileHeader) ([]string, string, string, error) {
 	keywords := make([]string, 0)
 	//loop just incase for multiple files (for now file length 1)
 	for _, file := range files {

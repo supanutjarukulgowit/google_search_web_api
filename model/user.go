@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/supanutjarukulgowit/google_search_web_api/common"
+)
 
 type User struct {
 	Id          string    `json:"id"`
@@ -26,4 +30,17 @@ type SignInRequest struct {
 type SignInResponse struct {
 	Token  string `json:"token"`
 	UserID string `json:"user_id"`
+}
+
+type UserSignInTest struct {
+	Response   common.ResponseObj `json:"response"`
+	Data       SignInResponse     `json:"data"`
+	Error      *common.ErrorObj   `json:"error"`
+	HTTPStatus int                `json:"-"`
+}
+
+type UserSignUpTest struct {
+	Response   common.ResponseObj `json:"response"`
+	Error      *common.ErrorObj   `json:"error"`
+	HTTPStatus int                `json:"-"`
 }

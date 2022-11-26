@@ -103,7 +103,11 @@ func (h *keywordHandler) GetKeywordList(c echo.Context) error {
 		if err != nil {
 			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetKeywordService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
-		response, err := keywordervice.GetKeywordList(userID)
+		db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
+		if err != nil {
+			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "ConnectPostgreSQLGorm error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
+		}
+		response, err := keywordervice.GetKeywordList(db, userID)
 		if err != nil {
 			return util.GenError(c, static.GET_KEYWORD_ERROR, "GetKeywordList error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
