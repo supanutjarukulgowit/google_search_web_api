@@ -8,6 +8,7 @@ import (
 	"github.com/supanutjarukulgowit/google_search_web_api/database"
 	"github.com/supanutjarukulgowit/google_search_web_api/model"
 	"github.com/supanutjarukulgowit/google_search_web_api/util"
+	"gorm.io/gorm"
 )
 
 type KeywordService struct {
@@ -27,17 +28,11 @@ func NewKeywordService(postgreSQL interface{}) (*KeywordService, error) {
 	}, nil
 }
 
-func (h *KeywordService) GetKeywordList(userID string) ([]model.GetKeywordListResponse, error) {
-	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
-	if err != nil {
-		return nil, fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
-	}
+func (h *KeywordService) GetKeywordList(db *gorm.DB, userID string) ([]model.GetKeywordListResponse, error) {
 	details := []model.GetKeywordListResponse{}
 	// Raw SQL
-
-	rows, err := db.Raw(`select id, keyword, ad_words, links,
-	html_link, raw_html, search_results, time_taken, created_date, cache from google_search_api_detail_dbs
-	where user_id = ? ORDER BY created_date asc `, userID).Rows()
+	raw := db.Raw(`select id, keyword, ad_words, links, html_link, raw_html, search_results, time_taken, created_date, cache from google_search_api_detail_dbs where user_id = ? ORDER BY created_date asc`, userID)
+	rows, err := raw.Rows()
 	if err != nil {
 		return nil, err
 	}
@@ -77,17 +72,13 @@ func (h *KeywordService) GetKeywordList(userID string) ([]model.GetKeywordListRe
 	return details, nil
 }
 
-func (h *KeywordService) GetSearchKeyword(req *model.SearchKeywordRequest, userID string) ([]model.GetKeywordListResponse, error) {
-	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
-	if err != nil {
-		return nil, fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
-	}
+func (h *KeywordService) GetSearchKeyword(db *gorm.DB, req *model.SearchKeywordRequest, userID string) ([]model.GetKeywordListResponse, error) {
 	details := []model.GetKeywordListResponse{}
 	// Raw SQL
 	k := fmt.Sprintf("%%%s%%", strings.ToUpper(req.Keyword))
 	rows, err := db.Raw(`select id, keyword, ad_words, links,
 	html_link, raw_html, search_results, time_taken, created_date, cache from google_search_api_detail_dbs
-	where UPPER(keyword) like ? and user_id = ? ORDER BY created_date asc `, k, userID).Rows()
+	where UPPER(keyword) like ? and user_id = ? ORDER BY created_date asc`, k, userID).Rows()
 	if err != nil {
 		return nil, err
 	}

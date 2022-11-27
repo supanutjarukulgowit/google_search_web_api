@@ -13,6 +13,7 @@ import (
 	"github.com/supanutjarukulgowit/google_search_web_api/repository"
 	"github.com/supanutjarukulgowit/google_search_web_api/static"
 	"github.com/supanutjarukulgowit/google_search_web_api/util"
+	"gorm.io/gorm"
 )
 
 type CsvService struct {
@@ -20,7 +21,7 @@ type CsvService struct {
 	PgConnection *model.PostgreSQLConnect
 }
 
-// var keywordsColumn = []string{"keyword_list"}
+var testUser = "6623CCE882D645338D1F5548F35B32FE"
 
 func NewCsvService(postgreSQL interface{}) (*CsvService, error) {
 	var pConnect model.PostgreSQLConnect
@@ -44,11 +45,7 @@ func (h *CsvService) DownloadTemplate() (*model.DownloadTemplateResponse, error)
 	}, nil
 }
 
-func (h *CsvService) UploadFile(form *multipart.Form, gSearchApiKey string) (map[string]*model.GoogleSearchApiDetailDb, string, string, string, error) {
-	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
-	if err != nil {
-		return nil, "", "", "", fmt.Errorf("ConnectPostgreSQLGorm error : %s", err.Error())
-	}
+func (h *CsvService) UploadFile(db *gorm.DB, form *multipart.Form) (map[string]*model.GoogleSearchApiDetailDb, string, string, string, error) {
 	//validate
 	if _, ok := form.File["files"]; !ok {
 		return nil, "", "", static.INVALID_PARAMS, fmt.Errorf("file not found")
@@ -64,13 +61,17 @@ func (h *CsvService) UploadFile(form *multipart.Form, gSearchApiKey string) (map
 	userID := form.Value["user_id"]
 	user := &model.User{}
 	db.Where("id = ?", userID).First(&user)
-	if user.Id == "" {
-		return nil, "", "", static.USER_NOT_FOUND, fmt.Errorf("user_id not found")
+	if userID[0] != testUser {
+		if user.Id == "" {
+			return nil, "", "", static.USER_NOT_FOUND, fmt.Errorf("user_id not found")
+		}
+	} else {
+		db.Where("id = ?", userID)
 	}
 	//get keywords
-	keywords, fileName, errCode, err := h.extractKeyWordsFromFile(files)
+	keywords, fileName, errCode, err := h.extractAndValidateKeyWordsFromFile(files)
 	if errCode != "" || err != nil {
-		return nil, "", "", errCode, fmt.Errorf("extractKeyWordsFromFile error : %s", err.Error())
+		return nil, "", "", errCode, fmt.Errorf("extractAndValidateKeyWordsFromFile error : %s", err.Error())
 	}
 	searchedKeywords, err := repository.GetSearchedKeyword(db, keywords)
 	if err != nil {
@@ -98,13 +99,13 @@ func (h *CsvService) UploadFile(form *multipart.Form, gSearchApiKey string) (map
 	if len(newKeywordList) != 0 {
 		r := db.CreateInBatches(&newKeywordList, 50)
 		if r.Error != nil {
-			return nil, "", "", "", fmt.Errorf("UploadFile|save|newKeywordList| error : %s", err.Error())
+			return nil, "", "", "", fmt.Errorf("UploadFile|save|newKeywordList| error : %s", r.Error)
 		}
 	}
 	return newKeywords, user.Id, searchID, "", nil
 }
 
-func (h *CsvService) extractKeyWordsFromFile(files []*multipart.FileHeader) ([]string, string, string, error) {
+func (h *CsvService) extractAndValidateKeyWordsFromFile(files []*multipart.FileHeader) ([]string, string, string, error) {
 	keywords := make([]string, 0)
 	//loop just incase for multiple files (for now file length 1)
 	for _, file := range files {

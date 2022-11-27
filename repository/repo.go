@@ -102,21 +102,23 @@ func GetFoundKeywords(db *gorm.DB, foundKeywords map[string]string, userID, sear
 }
 
 func UpdateSearchDataDetail(keywordsMap map[string]*model.GoogleSearchApiDetailDb, db *gorm.DB) error {
-	for _, data := range keywordsMap {
-		update := map[string]interface{}{
-			"ad_words":       data.AdWords,
-			"links":          data.Links,
-			"html_link":      data.HTMLLink,
-			"raw_html":       data.RawHTML,
-			"search_results": data.SearchResults,
-			"time_taken":     data.TimeTaken,
-			"cache":          data.Cache,
-			"status":         data.Status,
-			"err_msg":        data.ErrMsg,
-		}
-		r := db.Model(data).Where("user_id = ? and id = ? and keyword = ?", data.UserId, data.Id, data.Keyword).Updates(update)
-		if r.Error != nil {
-			return r.Error
+	if len(keywordsMap) != 0 {
+		for _, data := range keywordsMap {
+			update := map[string]interface{}{
+				"ad_words":       data.AdWords,
+				"links":          data.Links,
+				"html_link":      data.HTMLLink,
+				"raw_html":       data.RawHTML,
+				"search_results": data.SearchResults,
+				"time_taken":     data.TimeTaken,
+				"cache":          data.Cache,
+				"status":         data.Status,
+				"err_msg":        data.ErrMsg,
+			}
+			r := db.Model(data).Where("user_id = ? and id = ? and keyword = ?", data.UserId, data.Id, data.Keyword).Updates(update)
+			if r.Error != nil {
+				return r.Error
+			}
 		}
 	}
 	return nil

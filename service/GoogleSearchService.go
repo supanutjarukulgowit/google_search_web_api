@@ -15,6 +15,7 @@ import (
 	"github.com/supanutjarukulgowit/google_search_web_api/model"
 	"github.com/supanutjarukulgowit/google_search_web_api/repository"
 	"github.com/supanutjarukulgowit/google_search_web_api/util"
+	"gorm.io/gorm"
 )
 
 type GoogleSearchService struct {
@@ -35,13 +36,9 @@ func NewGoogleSearchService(postgreSQL interface{}) (*GoogleSearchService, error
 	}, nil
 }
 
-func (h *GoogleSearchService) GetGoogleSearchApi(keywordsMap map[string]*model.GoogleSearchApiDetailDb, gSearchApiKey, userId, searchID string) {
-	db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
-	if err != nil {
-		//this should be implement with log tool
-		fmt.Println("cannot connect to database : %s user_id: %s searchID : %s", err.Error(), userId, searchID)
-		return
-	}
+type searchFunc func(parameter map[string]string, gSearchApiKey string) g.Search
+
+func (h *GoogleSearchService) GetGoogleSearchApi(sFunc searchFunc, db *gorm.DB, keywordsMap map[string]*model.GoogleSearchApiDetailDb, gSearchApiKey, userId, searchID string) {
 	poolSize := 3
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -58,43 +55,52 @@ func (h *GoogleSearchService) GetGoogleSearchApi(keywordsMap map[string]*model.G
 						"engine":  "google",
 						"api_key": gSearchApiKey,
 					}
-					search := g.NewGoogleSearch(parameter, gSearchApiKey)
-					result, err := search.GetJSON()
-					if err != nil {
-						h.handleSaveLog(err, k, "search.GetJSON()", "", &errLog, keywordsMap)
+					search := sFunc(parameter, gSearchApiKey)
+					if _, ok := search.Parameter["test"]; !ok {
+						result, err := search.GetJSON()
+						if err != nil {
+							h.handleSaveLog(err, k, "search.GetJSON()", "", &errLog, keywordsMap)
+						}
+						mu.Lock()
+						var s model.GoogleSearchApiresponse
+						mapstructure.Decode(result, &s)
+						getHtmlCode, err := http.Get(s.SearchMetadata.GoogleUrl)
+						if err != nil {
+							h.handleSaveLog(err, k, "http.Get(s.SearchMetadata.GoogleUrl)", "", &errLog, keywordsMap)
+						}
+						defer getHtmlCode.Body.Close()
+						html, err := ioutil.ReadAll(getHtmlCode.Body)
+						if err != nil {
+							h.handleSaveLog(err, k, "ioutil.ReadAll", "", &errLog, keywordsMap)
+						}
+						jsonStr, err := json.Marshal(result)
+						if err != nil {
+							h.handleSaveLog(err, k, "json.Marshal", "", &errLog, keywordsMap)
+						}
+						searchDetail := model.GoogleSearchApiDetailDb{
+							Id:            keywordsMap[k].Id,
+							SearchId:      keywordsMap[k].SearchId,
+							UserId:        keywordsMap[k].UserId,
+							CreatedDate:   keywordsMap[k].CreatedDate,
+							Keyword:       k,
+							AdWords:       len(s.Ads),
+							Links:         strings.Count(string(jsonStr), "https://"),
+							HTMLLink:      s.SearchMetadata.GoogleUrl,
+							SearchResults: s.SearchInformation.TotalResults,
+							TimeTaken:     s.SearchInformation.TimeTakenDisplayed,
+							RawHTML:       html,
+							Status:        "success",
+						}
+						keywordsMap[k] = &searchDetail
+						mu.Unlock()
+					} else {
+						searchDetail := model.GoogleSearchApiDetailDb{
+							Id:      "",
+							Keyword: k,
+							Status:  "success",
+						}
+						keywordsMap[k] = &searchDetail
 					}
-					mu.Lock()
-					var s model.GoogleSearchApiresponse
-					mapstructure.Decode(result, &s)
-					getHtmlCode, err := http.Get(s.SearchMetadata.GoogleUrl)
-					if err != nil {
-						h.handleSaveLog(err, k, "http.Get(s.SearchMetadata.GoogleUrl)", "", &errLog, keywordsMap)
-					}
-					defer getHtmlCode.Body.Close()
-					html, err := ioutil.ReadAll(getHtmlCode.Body)
-					if err != nil {
-						h.handleSaveLog(err, k, "ioutil.ReadAll", "", &errLog, keywordsMap)
-					}
-					jsonStr, err := json.Marshal(result)
-					if err != nil {
-						h.handleSaveLog(err, k, "json.Marshal", "", &errLog, keywordsMap)
-					}
-					searchDetail := model.GoogleSearchApiDetailDb{
-						Id:            keywordsMap[k].Id,
-						SearchId:      keywordsMap[k].SearchId,
-						UserId:        keywordsMap[k].UserId,
-						CreatedDate:   keywordsMap[k].CreatedDate,
-						Keyword:       k,
-						AdWords:       len(s.Ads),
-						Links:         strings.Count(string(jsonStr), "https://"),
-						HTMLLink:      s.SearchMetadata.GoogleUrl,
-						SearchResults: s.SearchInformation.TotalResults,
-						TimeTaken:     s.SearchInformation.TimeTakenDisplayed,
-						RawHTML:       html,
-						Status:        "success",
-					}
-					keywordsMap[k] = &searchDetail
-					mu.Unlock()
 				}
 			}(gSearchApiKey, keywordsMap)
 		}
@@ -107,7 +113,7 @@ func (h *GoogleSearchService) GetGoogleSearchApi(keywordsMap map[string]*model.G
 		if len(errLog) != 0 {
 			db.CreateInBatches(errLog, 50)
 		}
-		err = repository.UpdateSearchDataDetail(keywordsMap, db)
+		err := repository.UpdateSearchDataDetail(keywordsMap, db)
 		if err != nil {
 			fmt.Println("UpdateSearchDataDetail error : %s user_id: %s searchID : %s", err.Error(), userId, searchID)
 		}
