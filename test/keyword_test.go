@@ -1,19 +1,17 @@
-package handler
+package test
 
 import (
-	"database/sql"
-	"log"
+	"fmt"
 	"regexp"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/stretchr/testify/assert"
 	"github.com/supanutjarukulgowit/google_search_web_api/configuration"
 	"github.com/supanutjarukulgowit/google_search_web_api/di"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
+	"github.com/supanutjarukulgowit/google_search_web_api/model"
 )
 
-func TestGetKeywordListWith(t *testing.T) {
+func TestGetKeywordList(t *testing.T) {
 	config, err := configuration.LoadConfigFile("../config/config.local.json")
 	if err != nil {
 		t.Errorf("LoadConfigFile error: %s", err)
@@ -39,34 +37,40 @@ func TestGetKeywordListWith(t *testing.T) {
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("there were unfulfilled expectations: %s", err)
 		}
+		assert.IsType(t, []model.GetKeywordListResponse{}, resp)
 	}
 }
 
-func NewDatabase() (*gorm.DB, sqlmock.Sqlmock, *sql.DB) {
-	// get db and mock
-	sqlDB, mock, err := sqlmock.New(
-		sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp),
-	)
+func TestGetSearchKeyword(t *testing.T) {
+	config, err := configuration.LoadConfigFile("../config/config.local.json")
 	if err != nil {
-		log.Fatalf("[sqlmock new] %s", err)
+		t.Errorf("LoadConfigFile error: %s", err)
+	} else {
+		di.Init(config)
+		keywordervice, err := di.GetKeywordService()
+		if err != nil {
+			t.Errorf("GetKeywordService error: %s", err)
+		}
+		db, mock, sqlDb := NewDatabase()
+		defer sqlDb.Close()
+		columns := []string{"id, keyword, ad_words, links, html_link, raw_html, search_results, time_taken, created_date"}
+		mockKeyword := &model.SearchKeywordRequest{
+			Keyword: "TEST",
+		}
+		userIDMock := "6623CCE882D645338D1F5548F35B32FE"
+		keywordEscaped := fmt.Sprintf("%%%s%%", mockKeyword.Keyword)
+		mock.ExpectQuery(regexp.QuoteMeta(`select id, keyword, ad_words, links,
+		html_link, raw_html, search_results, time_taken, created_date, cache from google_search_api_detail_dbs`)).WithArgs(keywordEscaped, userIDMock).WillReturnRows(mock.NewRows(columns))
+		// now we execute our method
+		resp, err := keywordervice.GetSearchKeyword(db, mockKeyword, userIDMock)
+		if err != nil {
+			t.Errorf("error was not expected while updating stats: %s", err)
+		}
+		_ = resp
+		// we make sure that all expectations were met
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("there were unfulfilled expectations: %s", err)
+		}
+		assert.IsType(t, []model.GetKeywordListResponse{}, resp)
 	}
-	// defer sqlDB.Close()
-
-	// create dialector
-	dialector := mysql.New(mysql.Config{
-		Conn:       sqlDB,
-		DriverName: "mysql",
-	})
-
-	columns := []string{"version"}
-	mock.ExpectQuery("SELECT VERSION()").WithArgs().WillReturnRows(
-		mock.NewRows(columns).FromCSVString("1"),
-	)
-	// open the database
-	db, err := gorm.Open(dialector, &gorm.Config{})
-	if err != nil {
-		log.Fatalf("[gorm open] %s", err)
-	}
-
-	return db, mock, sqlDB
 }

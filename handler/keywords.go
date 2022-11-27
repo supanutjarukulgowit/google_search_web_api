@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	g "github.com/serpapi/google-search-results-golang"
 	"github.com/supanutjarukulgowit/google_search_web_api/database"
 	"github.com/supanutjarukulgowit/google_search_web_api/di"
 	"github.com/supanutjarukulgowit/google_search_web_api/model"
@@ -25,6 +26,8 @@ type keywordHandler struct {
 	PgConnection  *model.PostgreSQLConnect
 	GSearchApiKey string
 }
+
+type searchFunc func() interface{}
 
 func NewKeywordsHandler(postgreSQL interface{}, gSearchApiKey string) (KeywordsHandler, error) {
 	var pConnect model.PostgreSQLConnect
@@ -70,7 +73,12 @@ func (h *keywordHandler) UploadFile(c echo.Context) error {
 		if err != nil {
 			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetGoogleSearchService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
-		newkeywords, userID, searchID, errCode, err := csvService.UploadFile(form, h.GSearchApiKey)
+		db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
+		if err != nil {
+			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetGoogleSearchService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
+		}
+
+		newkeywords, userID, searchID, errCode, err := csvService.UploadFile(db, form)
 		if errCode != "" {
 			if errCode == "ERR_001" {
 				return util.GenError(c, errCode, "UploadFile error : "+err.Error(), errCode, http.StatusBadRequest)
@@ -84,8 +92,12 @@ func (h *keywordHandler) UploadFile(c echo.Context) error {
 			return util.GenError(c, static.UPLOAD_TEMPLATE_ERROR, "UploadFile error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
 		//upload new keyword and then update status by async processing
+		searchFunc := func(parameter map[string]string, gSearchApiKey string) g.Search {
+			search := g.NewGoogleSearch(parameter, gSearchApiKey)
+			return search
+		}
 		go func() {
-			googleSearchService.GetGoogleSearchApi(newkeywords, h.GSearchApiKey, userID, searchID)
+			googleSearchService.GetGoogleSearchApi(searchFunc, db, newkeywords, h.GSearchApiKey, userID, searchID)
 		}()
 		return nil
 	}
@@ -140,7 +152,11 @@ func (h *keywordHandler) GetSearchKeyword(c echo.Context) error {
 		if err != nil {
 			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetKeywordService error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
-		response, err := keywordervice.GetSearchKeyword(&req, userID)
+		db, err := h.Pg.ConnectPostgreSQLGorm(h.PgConnection.Host, h.PgConnection.User, h.PgConnection.Password, h.PgConnection.Database, h.PgConnection.Port)
+		if err != nil {
+			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "ConnectPostgreSQLGorm error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
+		}
+		response, err := keywordervice.GetSearchKeyword(db, &req, userID)
 		if err != nil {
 			return util.GenError(c, static.INTERNAL_SERVER_ERROR, "GetSearchKeyword error : "+err.Error(), static.INTERNAL_SERVER_ERROR, http.StatusInternalServerError)
 		}
